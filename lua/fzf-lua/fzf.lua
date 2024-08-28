@@ -298,7 +298,10 @@ function M.raw_fzf(contents, fzf_cli_args, opts)
     -- working (as it's technically already in INSERT) or creating a new terminal buffer
     -- within the same window starts in NORMAL mode while returning the wrong `nvim_get_mode`
     if utils.__HAS_NVIM_06 and vim.api.nvim_get_mode().mode == "t" then
-      utils.feed_keys_termcodes("i")
+      -- utils.feed_keys_termcodes("i")
+      -- TODO:
+      vim.api.nvim_input('i')
+      --vim.cmd [[startinsert]]
     else
       vim.cmd [[startinsert]]
     end
