@@ -261,6 +261,8 @@ function M.builtin:populate_preview_buf(entry_str)
     end)
   self.tmpbuf = self:get_tmp_buffer()
   vim.api.nvim_buf_set_lines(self.tmpbuf, 0, -1, false, lines)
+  -- TODO: better preview
+  -- idea: attach specific ft's treesitter, or use inlay hint
   vim.bo[self.tmpbuf].filetype = "git"
   self:set_preview_buf(self.tmpbuf)
   self.win:update_title(string.format(" Action #%d ", idx))
