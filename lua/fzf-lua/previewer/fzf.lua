@@ -289,6 +289,10 @@ function Previewer.git_diff:new(o, opts)
   self.cmd_deleted = path.git_cwd(o.cmd_deleted, opts)
   self.cmd_modified = path.git_cwd(o.cmd_modified, opts)
   self.cmd_untracked = path.git_cwd(o.cmd_untracked, opts)
+  -- https://stackoverflow.com/questions/9848347/can-i-make-git-diff-only-display-the-line-numbers-and-changed-file-names
+  print(self.cmd_deleted)
+  print(self.cmd_modified)
+  print(self.cmd_untracked)
   self.pager = opts.preview_pager == nil and o.pager or opts.preview_pager
   if type(self.pager) == "function" then
     self.pager = self.pager()
