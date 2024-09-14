@@ -252,7 +252,7 @@ function Previewer.base:display_entry(entry_str)
     self.preview_bufnr = self:clear_preview_buf(true)
   end
 
-  local populate_preview_buf = function(entry_str_)
+  local populate_preview_buf = function()
     if not self.win or not self.win:validate_preview() then return end
 
     -- redraw the preview border, resets title
@@ -260,7 +260,7 @@ function Previewer.base:display_entry(entry_str)
     self.win:redraw_preview_border()
 
     -- specialized previewer populate function
-    self:populate_preview_buf(entry_str_)
+    self:populate_preview_buf(entry_str)
 
     -- reset the preview window highlights
     self.win:reset_win_highlights(self.win.preview_winid)
@@ -268,20 +268,14 @@ function Previewer.base:display_entry(entry_str)
 
   -- debounce preview entries
   if tonumber(self.delay) > 0 then
-    if not self._entry_count then
-      self._entry_count = 1
+    if not self._timer then
+      self._timer = uv.new_timer()
     else
-      self._entry_count = self._entry_count + 1
+      self._timer:stop()
     end
-    local entry_count = self._entry_count
-    vim.defer_fn(function()
-      -- only display if entry hasn't changed
-      if self._entry_count == entry_count then
-        populate_preview_buf(entry_str)
-      end
-    end, self.delay)
+    self._timer:start(self.delay, 0, vim.schedule_wrap(populate_preview_buf))
   else
-    populate_preview_buf(entry_str)
+    populate_preview_buf()
   end
 end
 
