@@ -228,16 +228,7 @@ function M.lua_escape(str)
   end)
 end
 
-function M.lua_regex_escape(str)
-  -- escape all lua special chars
-  -- ( ) % . + - * [ ? ^ $
-  if not str then return nil end
-  -- gsub returns a tuple, return the string only or unexpected happens (#1257)
-  local ret = str:gsub("[%(%)%.%+%-%*%[%?%^%$%%]", function(x)
-    return "%" .. x
-  end)
-  return ret
-end
+M.lua_regex_escape = vim.pesc
 
 function M.glob_escape(str)
   if not str then return str end
