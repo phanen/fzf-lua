@@ -880,7 +880,7 @@ end
 -- TODO: not needed anymore, it seems that `vim.lsp.buf.code_action` still
 -- uses the old `vim.lsp.diagnostic` API, we will do the same until neovim
 -- stops using this API
---[[ local function get_line_diagnostics(_)
+local function get_line_diagnostics(_)
   if not vim.diagnostic then
     return vim.lsp.diagnostic.get_line_diagnostics()
   end
@@ -907,7 +907,7 @@ end
       } }
       -- Must return an empty table or some LSP servers fail (#707)
       or {}
-end ]]
+end
 
 M.code_actions = function(opts)
   opts = normalize_lsp_opts(opts, "lsp.code_actions")
@@ -935,7 +935,7 @@ M.code_actions = function(opts)
       -- Neovim still uses `vim.lsp.diagnostic` API in "nvim/runtime/lua/vim/lsp/buf.lua"
       -- continue to use it until proven otherwise, this also fixes #707 as diagnostics
       -- must not be nil or some LSP servers will fail (e.g. ruff_lsp, rust_analyzer)
-      diagnostics = vim.lsp.diagnostic.get_line_diagnostics(core.CTX().bufnr) or {}
+      diagnostics = get_line_diagnostics(core.CTX().bufnr) or {}
     }
 
     -- make sure 'gen_lsp_contents' is run synchronously
