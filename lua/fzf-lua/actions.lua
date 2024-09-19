@@ -803,8 +803,6 @@ M.grep_lgrep = function(_, opts)
     -- different lookup key for grep|lgrep_curbuf
     __resume_key = opts.__resume_key,
     rg_glob = opts.rg_glob or opts.__call_opts.rg_glob,
-    -- globs always require command processing with 'multiprocess'
-    requires_processing = opts.rg_glob or opts.__call_opts.rg_glob,
     -- when used with tags pass the resolved ctags_file from tags-option as
     -- `tagfiles()` might not return the correct file called from the float (#700)
     ctags_file = opts.ctags_file,

@@ -44,9 +44,6 @@ M.status = function(opts)
   -- as part of our `git status -s`
   opts.git_icons = false
 
-  -- we always require processing (can't send the raw command to fzf)
-  opts.requires_processing = true
-
   local contents
   if opts.multiprocess then
     -- git status does not require preprocessing if not loading devicons

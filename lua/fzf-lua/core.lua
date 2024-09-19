@@ -836,19 +836,49 @@ M.mt_cmd_wrapper = function(opts)
     end
   end
 
-  if not opts.requires_processing
-      and not opts.git_icons
-      and not opts.file_icons
-      and not opts.file_ignore_patterns
-      and not opts.path_shorten
-      and not opts.formatter
-      and not opts.multiline
+  -- WIP: handle make_entry.tags/make_entry.files form tag_live_grep_st/live_grep_st
+  if not opts.multiprocess then
+    -- opts.__resume_date.key == 'grep'
+  end
+
+  -- analyse if we really need those processing or not
+  local need_preprocess = opts.__mt_preprocess
+      or (opts.multiprocess and opts.rg_glob)
+      or opts.git_icons
+      or opts.formatter
+  local need_transform = opts.__mt_transform
+      or opts.git_icons
+      or opts.file_icons
+      or opts.file_ignore_patterns
+      or opts.path_shorten
+      or opts.formatter
+      or opts.multiline
+  local need_postprocess = opts.mt_postprocess
+      or opts.file_icons
+
+  if not need_preprocess and not need_transform and not need_postprocess
   then
     -- command does not require any processing, we also reset `argv_expr`
     -- to keep `setup_fzf_interactive_flags::no_query_condi` in the command
     opts.argv_expr = nil
+
+    local is_live_grep = opts.is_live_grep
+    -- inject
+    if opts.requires_processing or opts.git_icons or opts.file_icons then
+      opts.fn_transform = opts.fn_transform or
+          function(x)
+            return make_entry.file(x, opts)
+          end
+      opts.fn_preprocess = opts.fn_preprocess or
+          function(o)
+            return make_entry.preprocess(o)
+          end
+    end
+
     return opts.cmd
-  elseif opts.multiprocess then
+  end
+
+  if opts.multiprocess then
     assert(not opts.__mt_transform or type(opts.__mt_transform) == "string")
     assert(not opts.__mt_preprocess or type(opts.__mt_preprocess) == "string")
     assert(not opts.__mt_postprocess or type(opts.__mt_postprocess) == "string")
@@ -863,35 +893,35 @@ M.mt_cmd_wrapper = function(opts)
       -- of arguments (#291), we use the last argument instead
       opts.cmd = opts.cmd:gsub(M.fzf_query_placeholder, "{argvz}")
     end
+
+    local mt_transform = opts.__mt_transform or
+        (need_transform and [[return require("make_entry").file]] or "nil")
+    local mt_preprocess = opts.__mt_preprocess or
+        (need_preprocess and [[return require("make_entry").preprocess]] or "nil")
+    local mt_postprocess = opts.__mt_postprocess or
+        (need_postprocess and [[return require("make_entry").preprocess]] or "nil")
     local cmd = libuv.wrap_spawn_stdio(
       serialize(filter_opts(opts)),
-      serialize(opts.__mt_transform or [[return require("make_entry").file]]),
-      serialize(opts.__mt_preprocess or [[return require("make_entry").preprocess]]),
-      serialize(opts.__mt_postprocess or "nil")
-    )
+      serialize(mt_transform), serialize(mt_preprocess), serialize(mt_postprocess))
     if opts.argv_expr then
       -- prefix the query with `--` so we can support `--fixed-strings` (#781)
       cmd = string.format("%s -- %s", cmd, M.fzf_query_placeholder)
     end
     return cmd
-  else
-    assert(not opts.__mt_transform or type(opts.__mt_transform) == "function")
-    assert(not opts.__mt_preprocess or type(opts.__mt_preprocess) == "function")
-    assert(not opts.__mt_postprocess or type(opts.__mt_postprocess) == "function")
-    return libuv.spawn_nvim_fzf_cmd(opts,
-      function(x)
-        return opts.__mt_transform
-            and opts.__mt_transform(x, opts)
-            or make_entry.file(x, opts)
-      end,
-      function(o)
-        -- setup opts.cwd and git diff files
-        return opts.__mt_preprocess
-            and opts.__mt_preprocess(o)
-            or make_entry.preprocess(o)
-      end,
-      opts.__mt_postprocess and function(o) return opts.__mt_postprocess(o) end or nil)
   end
+
+  assert(not opts.__mt_transform or type(opts.__mt_transform) == "function")
+  assert(not opts.__mt_preprocess or type(opts.__mt_preprocess) == "function")
+  assert(not opts.__mt_postprocess or type(opts.__mt_postprocess) == "function")
+
+  local mt_transform = opts.__mt_transform and function(x) return opts.__mt_transform(x, opts) end
+      or (need_transform and function(x) return make_entry.file(x, opts) end or nil)
+  local mt_preprocess = opts.__mt_transform and
+      function(x) return opts.__mt_preprocess(x, opts) end
+      or (need_transform and make_entry.preprocess or nil)
+  local mt_postprocess = opts.__mt_transform and opts.__mt_postprocess
+      or (need_transform and make_entry.postprocess or nil)
+  return libuv.spawn_nvim_fzf_cmd(opts, mt_transform, mt_preprocess, mt_postprocess)
 end
 
 -- given the default delimiter ':' this is the

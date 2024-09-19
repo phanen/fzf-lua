@@ -16,17 +16,18 @@ local get_grep_cmd = function(opts, search_query, no_esc)
   if opts.raw_cmd and #opts.raw_cmd > 0 then
     return opts.raw_cmd
   end
-  local command, is_rg, is_grep = nil, nil, nil
+  local command
   if opts.cmd and #opts.cmd > 0 then
     command = opts.cmd
+    if command:match("^rg") then opts._cmd_is_rg = true end
   elseif vim.fn.executable("rg") == 1 then
-    is_rg = true
+    opts._cmd_is_rg = true
     command = string.format("rg %s", opts.rg_opts)
   elseif utils.__IS_WINDOWS then
     utils.warn("Grep requires installing 'rg' on Windows.")
     return nil
   else
-    is_grep = true
+    opts._cmd_is_grep = true
     command = string.format("grep %s", opts.grep_opts)
   end
 
@@ -35,13 +36,15 @@ local get_grep_cmd = function(opts, search_query, no_esc)
   -- be reworked into a table of arguments
   opts._cmd = command
 
-  if opts.rg_glob and not command:match("^rg") then
+  if opts.rg_glob and not opts._cmd_is_rg then
     opts.rg_glob = false
     utils.warn("'--glob|iglob' flags require 'rg', ignoring 'rg_glob' option.")
   end
 
   if opts.rg_glob then
     local new_query, glob_args = make_entry.glob_parse(search_query, opts)
+    -- vim.print(new_query, glob_args)
+    -- vim.print(search_query, glob_args)
     if glob_args then
       -- since the search string mixes both the query and
       -- glob separators we cannot used unescaped strings
@@ -60,7 +63,7 @@ local get_grep_cmd = function(opts, search_query, no_esc)
   -- filespec takes precedence over all and doesn't shellescape
   -- this is so user can send a file populating command instead
   local search_path = ""
-  local print_filename_flags = " --with-filename" .. (is_rg and " --no-heading" or "")
+  local print_filename_flags = " --with-filename" .. (opts._is_rg and " --no-heading" or "")
   if opts.filespec and #opts.filespec > 0 then
     search_path = opts.filespec
   elseif opts.filename and #opts.filename > 0 then
@@ -77,7 +80,7 @@ local get_grep_cmd = function(opts, search_query, no_esc)
       search_paths[i] = libuv.shellescape(path.relative_to(path.normalize(p), uv.cwd()))
     end
     search_path = table.concat(search_paths, " ")
-    if is_grep then
+    if opts._is_grep then
       -- grep requires adding `-r` to command as paths can be either file or directory
       command = make_entry.rg_insert_args(command, print_filename_flags .. " -r")
     end
@@ -241,18 +244,11 @@ M.live_grep_st = function(opts)
     -- can be nil when called as fzf initial command
     query = query or ""
     opts.no_esc = nil
-    return get_grep_cmd(opts, query, true)
-  end
-
-  if opts.requires_processing or opts.git_icons or opts.file_icons then
-    opts.fn_transform = opts.fn_transform or
-        function(x)
-          return make_entry.file(x, opts)
-        end
-    opts.fn_preprocess = opts.fn_preprocess or
-        function(o)
-          return make_entry.preprocess(o)
-        end
+    opts.cmd = get_grep_cmd(opts, query, true)
+    -- return vim.print(get_grep_cmd(opts, query, true))
+    return vim.print(core.mt_cmd_wrapper(opts))
+    -- vim.print(ret)
+    -- return ret
   end
 
   -- search query in header line
@@ -284,42 +280,14 @@ M.live_grep_mt = function(opts)
   opts.cmd = get_grep_cmd(opts, core.fzf_query_placeholder, 2)
   if not opts.cmd then return end
 
-  local command = core.mt_cmd_wrapper(opts)
-
   -- signal 'fzf_exec' to set 'change:reload' parameters
   -- or skim's "interactive" mode (AKA "live query")
-  opts.fn_reload = command
+  opts.fn_reload = core.mt_cmd_wrapper(opts)
 
   -- search query in header line
   opts = core.set_header(opts, opts.headers or { "actions", "cwd" })
   opts = core.set_fzf_field_index(opts)
   core.fzf_exec(nil, opts)
-end
-
-M.live_grep_glob_st = function(opts)
-  if vim.fn.executable("rg") ~= 1 then
-    utils.warn("'--glob|iglob' flags requires 'rg' (https://github.com/BurntSushi/ripgrep)")
-    return
-  end
-
-  -- 'rg_glob = true' enables glob
-  -- processing in 'get_grep_cmd'
-  opts = opts or {}
-  opts.rg_glob = true
-  return M.live_grep_st(opts)
-end
-
-M.live_grep_glob_mt = function(opts)
-  if vim.fn.executable("rg") ~= 1 then
-    utils.warn("'--glob|iglob' flags requires 'rg' (https://github.com/BurntSushi/ripgrep)")
-    return
-  end
-
-  -- 'rg_glob = true' enables the glob processing in
-  -- 'make_entry.preprocess', only supported with multiprocess
-  opts = opts or {}
-  opts.rg_glob = true
-  return M.live_grep_mt(opts)
 end
 
 M.live_grep_native = function(opts)
@@ -348,13 +316,19 @@ M.live_grep = function(opts)
 end
 
 M.live_grep_glob = function(opts)
+  if vim.fn.executable("rg") ~= 1 then
+    utils.warn("'--glob|iglob' flags requires 'rg' (https://github.com/BurntSushi/ripgrep)")
+    return
+  end
+
   opts = config.normalize_opts(opts, "grep")
   if not opts then return end
 
+  opts.rg_glob = true
   if opts.multiprocess then
-    return M.live_grep_glob_mt(opts)
+    return M.live_grep_mt(opts)
   else
-    return M.live_grep_glob_st(opts)
+    return M.live_grep_st(opts)
   end
 end
 
