@@ -511,6 +511,19 @@ M.goto_mark = function(selected)
   -- vim.fn.feedkeys(string.format("'%s", mark))
 end
 
+M.mark_del = function(selected)
+  local win = utils.CTX().winid
+  local buf = utils.CTX().bufnr
+  vim.api.nvim_win_call(win, function()
+    vim.tbl_map(function(s)
+      local mark = s:match "[^ ]+"
+      local ok, res = pcall(vim.api.nvim_buf_del_mark, buf, mark)
+      if ok and res then return end
+      return vim.cmd.delm(mark)
+    end, selected)
+  end)
+end
+
 M.goto_jump = function(selected, opts)
   if opts.jump_using_norm then
     local jump, _, _, _ = selected[1]:match("(%d+)%s+(%d+)%s+(%d+)%s+(.*)")
