@@ -46,8 +46,30 @@ T["win"]["hide"]["ensure gc called after win hidden (#1782)"] = function()
       end
     end
     -- TODO: why isn't gc called with the builtin previewr
-    -- child.lua([[FzfLua.files{ previewer = 'builtin' }]])
-    child.lua([[FzfLua.files{ previewer = false }]])
+    -- child.lua([[FzfLua.shell.clear_registry()]])
+    child.lua([[FzfLua.files{ previewer = 'builtin' }]])
+    -- child.lua([[FzfLua.files{ previewer = false }]])
+    local r = child.lua([[
+    if not _G.once then
+      _G.once = true
+      _G.save1 = setmetatable({}, { __mode = 'kv' })
+      _G.save1[1] = FzfLua.utils.fzf_winobj()
+      -- return FzfLua.reach(FzfLua.shell.register_func, save1[1])
+    elseif _G.save1[1] then
+      -- local r = FzfLua.reach(FzfLua.shell.register_func, save1[1])
+      local r = FzfLua.reach(_G, assert(save1[1]))
+      if not r then return 'fine' end
+      return r
+    else
+      return 'no'
+    end
+    ]])
+    vim.print("\n" .. tostring(r))
+    -- vim.print("\n" ..
+    --   tostring(child.lua(
+    --     [[return FzfLua.reach(FzfLua.shell.register_func, FzfLua.utils.fzf_winobj())]])))
+
+    -- child.lua([[FzfLua.files{ previewer = false }]])
     child.wait_until(function()
       return child.lua_get([[_G._fzf_load_called]]) == true
     end)

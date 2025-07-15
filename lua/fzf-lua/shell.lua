@@ -35,6 +35,10 @@ function M.set_protected(id)
 end
 
 function M.clear_protected()
+  -- for id, _ in pairs(_protected) do
+  --   _registry[id] = nil
+  -- end
+  -- _registry = {}
   _protected = {}
 end
 
