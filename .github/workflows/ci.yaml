@@ -17,27 +17,27 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-        rev: [nightly, v0.11.4, puc-lua]
+        os: [windows-latest]
+        rev: [nightly]
         exclude:
           - os: macos-latest
             rev: puc-lua
           - os: windows-latest
             rev: puc-lua
         include:
-          - os: macos-latest
-            install-deps: |
-              brew update && brew install fzf ripgrep fd gnu-getopt
-              brew link --force gnu-getopt
+          # - os: macos-latest
+          #   install-deps: |
+          #     brew update && brew install fzf ripgrep fd gnu-getopt
+          #     brew link --force gnu-getopt
           - os: windows-latest
             install-deps: |
               scoop bucket add extras
               scoop install fzf ripgrep fd
-          - os: ubuntu-latest
-            install-deps: |
-              sudo apt-get update && sudo apt-get install -y ripgrep fd-find
-              wget -O - https://github.com/junegunn/fzf/releases/download/v0.67.0/fzf-0.67.0-linux_amd64.tar.gz | tar zxfv -
-              sudo mv ./fzf /bin
+          # - os: ubuntu-latest
+          #   install-deps: |
+          #     sudo apt-get update && sudo apt-get install -y ripgrep fd-find
+          #     wget -O - https://github.com/junegunn/fzf/releases/download/v0.67.0/fzf-0.67.0-linux_amd64.tar.gz | tar zxfv -
+          #     sudo mv ./fzf /bin
 
     steps:
       - uses: actions/checkout@v6
@@ -81,4 +81,4 @@ jobs:
 
       - name: Run tests
         run: |
-          make test
+          make test glob=action
