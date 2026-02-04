@@ -393,16 +393,16 @@ M.fzf = function(contents, opts)
   win.on_SIGWINCH(opts, "win.unhide", function(args)
     if not tonumber(args[1]) then return end
       print(opts._contents)
-    local reload = type(opts._contents) == "string"
-        and (opts._resume_reload == true
-          or type(opts._resume_reload) == "function" and opts._resume_reload(opts))
-      print(opts._contents)
-    if reload then
+    -- local reload = type(opts._contents) == "string"
+    --     and (opts._resume_reload == true
+    --       or type(opts._resume_reload) == "function" and opts._resume_reload(opts))
+    --   print(opts._contents)
+    -- if reload then
       -- return "reload:" .. opts._contents
       -- return string.format("%sreload:%s",
       --   type(reload) == "string" and reload .. "+" or "",
       --   opts._contents)
-    end
+    -- end
   end)
 
   -- live command may contain field index {q}, cannot be used as FZF_DEFAULT_COMMAND
