@@ -394,12 +394,12 @@ M.fzf = function(contents, opts)
     if not tonumber(args[1]) then return end
     local reload = type(opts._contents) == "string"
         and (opts._resume_reload == true
-          ---@diagnostic disable-next-line: need-check-nil
           or type(opts._resume_reload) == "function" and opts._resume_reload(opts))
     if reload then
-      return string.format("%sreload:%s",
-        type(reload) == "string" and reload .. "+" or "",
-        opts._contents)
+      return "reload:" .. opts._contents
+      -- return string.format("%sreload:%s",
+      --   type(reload) == "string" and reload .. "+" or "",
+      --   opts._contents)
     end
   end)
 
