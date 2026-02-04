@@ -405,17 +405,19 @@ M.fzf = function(contents, opts)
   -- end)
 
   opts._fzf_cli_args = opts._fzf_cli_args or {}
+  local cmd = FzfLua.shell.stringify_data(function(args)
+    -- local scopes = opts.__sigwinches or {}
+    -- local acts = vim.tbl_map(function(k) return opts.__sigwinch_on_scope[k](args) end, scopes)
+    -- opts.__sigwinches = nil
+    -- acts = vim.tbl_filter(function(a) return a and #a > 0 end, acts)
+    -- local anys = vim.tbl_map(function(h) return h(args) end, opts.__sigwinch_on_any)
+    -- anys = vim.tbl_filter(function(a) return a and #a > 0 end, anys)
+    -- vim.list_extend(anys, acts)
+    -- return table.concat(anys, "+")
+  end, opts, "")
+  print(cmd)
   table.insert(opts._fzf_cli_args, "--bind="
-    .. libuv.shellescape("resize:+transform:" .. FzfLua.shell.stringify_data(function(args)
-      -- local scopes = opts.__sigwinches or {}
-      -- local acts = vim.tbl_map(function(k) return opts.__sigwinch_on_scope[k](args) end, scopes)
-      -- opts.__sigwinches = nil
-      -- acts = vim.tbl_filter(function(a) return a and #a > 0 end, acts)
-      -- local anys = vim.tbl_map(function(h) return h(args) end, opts.__sigwinch_on_any)
-      -- anys = vim.tbl_filter(function(a) return a and #a > 0 end, anys)
-      -- vim.list_extend(anys, acts)
-      -- return table.concat(anys, "+")
-    end, opts, "")))
+    .. libuv.shellescape("resize:+transform:" .. cmd))
 
   -- live command may contain field index {q}, cannot be used as FZF_DEFAULT_COMMAND
   local selected, exit_code = fzf.raw_fzf(opts.is_live and utils.shell_nop() or contents,
