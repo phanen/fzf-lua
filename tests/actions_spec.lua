@@ -17,7 +17,12 @@ T["actions"] = new_set({ n_retry = not helpers.IS_LINUX() and 5 or nil })
 
 T["actions"]["ui don't freeze on error"] = function()
   -- reload({ "hide" })
-  local screen_opts = { ignore_text = { 28 } }
+  local screen_opts = {
+    start_line = 1,
+    end_line = 10,
+    ignore_text = { 28 },
+  }
+  exec_lua([[require('vim._extui').enable{}]])
   exec_lua(
     [[FzfLua.fzf_exec({ "aaa", "bbb" }, {
       actions = { enter = { fn = error, exec_silent = true } },

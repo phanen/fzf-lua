@@ -415,7 +415,7 @@ M.fzf = function(contents, opts)
     -- vim.list_extend(anys, acts)
     -- return table.concat(anys, "+")
   end, opts, "")
-  print(cmd)
+  -- print(cmd)
   table.insert(opts._fzf_cli_args, "--bind="
     .. libuv.shellescape("resize:+transform:" .. cmd))
 
