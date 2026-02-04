@@ -389,21 +389,6 @@ M.fzf = function(contents, opts)
     end)
   end
 
-  -- Hijack the resize event to reload buffer/tab list on unhide
-  -- win.on_SIGWINCH(opts, "win.unhide", function(args)
-    -- if not tonumber(args[1]) then return end
-    -- local a = 1
-    -- local reload = type(opts._contents) == "string"
-        -- and (opts._resume_reload == false
-        --   or type(opts._resume_reload) == "function" and opts._resume_reload(opts))
-    -- if reload then
-      -- return "reload:" .. opts._contents
-      -- return string.format("%sreload:%s",
-      --   type(reload) == "string" and reload .. "+" or "",
-      --   opts._contents)
-    -- end
-  -- end)
-
   -- live command may contain field index {q}, cannot be used as FZF_DEFAULT_COMMAND
   local selected, exit_code = fzf.raw_fzf(opts.is_live and utils.shell_nop() or contents,
     M.build_fzf_cli(opts),
