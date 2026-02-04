@@ -392,7 +392,7 @@ M.fzf = function(contents, opts)
   -- Hijack the resize event to reload buffer/tab list on unhide
   win.on_SIGWINCH(opts, "win.unhide", function(args)
     if not tonumber(args[1]) then return end
-      print(opts._contents)
+      -- print(opts._contents)
     -- local reload = type(opts._contents) == "string"
     --     and (opts._resume_reload == true
     --       or type(opts._resume_reload) == "function" and opts._resume_reload(opts))
