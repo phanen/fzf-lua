@@ -389,6 +389,34 @@ M.fzf = function(contents, opts)
     end)
   end
 
+  -- Hijack the resize event to reload buffer/tab list on unhide
+  -- win.on_SIGWINCH(opts, "win.unhide", function(args)
+    -- if not tonumber(args[1]) then return end
+    -- local a = 1
+    -- local reload = type(opts._contents) == "string"
+        -- and (opts._resume_reload == false
+        --   or type(opts._resume_reload) == "function" and opts._resume_reload(opts))
+    -- if reload then
+      -- return "reload:" .. opts._contents
+      -- return string.format("%sreload:%s",
+      --   type(reload) == "string" and reload .. "+" or "",
+      --   opts._contents)
+    -- end
+  -- end)
+
+  opts._fzf_cli_args = opts._fzf_cli_args or {}
+  table.insert(opts._fzf_cli_args, "--bind="
+    .. libuv.shellescape("resize:+transform:" .. FzfLua.shell.stringify_data(function(args)
+      -- local scopes = opts.__sigwinches or {}
+      -- local acts = vim.tbl_map(function(k) return opts.__sigwinch_on_scope[k](args) end, scopes)
+      -- opts.__sigwinches = nil
+      -- acts = vim.tbl_filter(function(a) return a and #a > 0 end, acts)
+      -- local anys = vim.tbl_map(function(h) return h(args) end, opts.__sigwinch_on_any)
+      -- anys = vim.tbl_filter(function(a) return a and #a > 0 end, anys)
+      -- vim.list_extend(anys, acts)
+      -- return table.concat(anys, "+")
+    end, opts, utils.__IS_WINDOWS and "%FZF_PREVIEW_LINES%" or "$FZF_PREVIEW_LINES")))
+
   -- live command may contain field index {q}, cannot be used as FZF_DEFAULT_COMMAND
   local selected, exit_code = fzf.raw_fzf(opts.is_live and utils.shell_nop() or contents,
     M.build_fzf_cli(opts),
