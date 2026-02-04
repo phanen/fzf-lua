@@ -393,8 +393,8 @@ M.fzf = function(contents, opts)
   win.on_SIGWINCH(opts, "win.unhide", function(args)
     if not tonumber(args[1]) then return end
     local reload = type(opts._contents) == "string"
-        and (opts._resume_reload == true
-          or type(opts._resume_reload) == "function" and opts._resume_reload(opts))
+        -- and (opts._resume_reload == true
+        --   or type(opts._resume_reload) == "function" and opts._resume_reload(opts))
     if reload then
       -- return "reload:" .. opts._contents
       -- return string.format("%sreload:%s",
