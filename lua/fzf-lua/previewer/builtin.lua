@@ -1668,9 +1668,9 @@ function Previewer.keymaps:parse_entry(entry_str)
   local entry = path.keymap_to_entry(entry_str, self.opts)
   if not entry.vmap then return entry end
   return {
-    filetype = "vim",
+    filetype = "lua",
     title = string.format("%s:%s", entry.mode, entry.key),
-    content = utils.strsplit(assert(entry.vmap:match("[^%s]+$")), "\n"),
+    content = utils.strsplit(entry.vmap, "\n"),
   }
 end
 
