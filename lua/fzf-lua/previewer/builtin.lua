@@ -854,9 +854,8 @@ function Previewer.buffer_or_file:_populate_loaded_buffer_preview(tmpbuf, entry)
   self:preview_buf_post(entry, entry.terminal)
 end
 
----@param tmpbuf integer?
+---@param tmpbuf integer
 ---@param entry fzf-lua.buffer_or_file.Entry
----@return nil
 function Previewer.buffer_or_file:_populate_location_preview(tmpbuf, entry)
   -- LSP 'jdt://' entries, see issue #195
   -- https://github.com/ibhagwan/fzf-lua/issues/195
@@ -864,7 +863,8 @@ function Previewer.buffer_or_file:_populate_location_preview(tmpbuf, entry)
     local loc = { uri = entry.uri, range = entry.range }
     local ok, res = pcall(utils.jump_to_location, loc, "utf-16", false)
     if ok then
-      self.preview_bufnr = api.nvim_get_current_buf()
+      entry.bufnr = api.nvim_get_current_buf()
+      self:_populate_loaded_buffer_preview(tmpbuf, entry)
       return
     end
     -- in case of an error display the stacktrace in the preview buffer
@@ -974,30 +974,30 @@ function Previewer.buffer_or_file:populate_preview_buf(entry_str)
     return
   end
 
-  local tmpbuf = (cached or {}).bufnr -- cached must be stale now if exists
+  -- if cached exists, must be stale, otherwise alloc a new buffer
+  local buf = (cached or {}).bufnr or self:get_tmp_buffer()
   self:_stop_preview_job()
 
   if entry.bufnr and api.nvim_buf_is_loaded(entry.bufnr) and vim.bo[entry.bufnr].filetype ~= "image" then
-    self:_populate_loaded_buffer_preview(tmpbuf or self:get_tmp_buffer(), entry)
+    self:_populate_loaded_buffer_preview(buf, entry)
     return
   elseif entry.uri and entry.range then
-    self:_populate_location_preview(tmpbuf, entry)
+    self:_populate_location_preview(buf, entry)
     return
   end
-  tmpbuf = tmpbuf or self:get_tmp_buffer()
-  if self:populate_terminal_cmd(tmpbuf, entry) then
+  if self:populate_terminal_cmd(buf, entry) then
     return
   end
   if entry.cmd then
-    return self:_populate_cmd_preview(tmpbuf, entry, entry_str)
+    return self:_populate_cmd_preview(buf, entry, entry_str)
   end
-  if self:attach_snacks_image_buf(tmpbuf, entry) then
+  if self:attach_snacks_image_buf(buf, entry) then
     return self:preview_buf_post(entry)
   end
   if entry.content then
-    return self:_set_preview_lines(tmpbuf, entry)
+    return self:_set_preview_lines(buf, entry)
   end
-  self:_populate_file_preview(tmpbuf, entry)
+  self:_populate_file_preview(buf, entry)
 end
 
 -- Attach ts highlighter, neovim >= v0.9
