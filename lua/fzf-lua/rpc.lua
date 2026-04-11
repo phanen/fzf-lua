@@ -21,32 +21,143 @@ local function new_pipe()
   return socket, tmp
 end
 
+-- local function server_listen(server_socket, server_socket_path)
+--   uv.listen(server_socket, 10, function(_)
+--     local receive_socket = assert(uv.new_pipe(false))
+--     uv.accept(server_socket, receive_socket)
+--
+--     -- Avoid dangling temp dir on premature process kills (live grep)
+--     -- see more complete note in spawn.lua
+--     if not _is_win then
+--       uv.fs_unlink(server_socket_path)
+--       local tmpdir = vim.fn.fnamemodify(server_socket_path, ":h")
+--       if tmpdir and #tmpdir > 0 then uv.fs_rmdir(tmpdir) end
+--     end
+--
+--     receive_socket:read_start(function(err, data)
+--       assert(not err)
+--       if not data then
+--         uv.close(receive_socket)
+--         uv.close(server_socket)
+--         -- on windows: ci fail when use uv.stop()
+--         -- on linux: zero event can freeze
+--         -- https://github.com/ibhagwan/fzf-lua/pull/1955#issuecomment-2785474217
+--         -- uv.stop()
+--         os.exit(0)
+--         return
+--       end
+--       io.write(data)
+--     end)
+--   end)
+-- end
+
+-- Import LuaJIT FFI
+local ffi = require("ffi")
+local C = ffi.C
+
+-- Define the C function signatures and constants needed for splice.
+-- This only needs to be done once at the top of your file.
+ffi.cdef [[
+    // ssize_t splice(int fd_in, loff_t *off_in, int fd_out, loff_t *off_out, size_t len, unsigned int flags);
+    // loff_t is 64-bit, so we use int64_t* for the offsets. We will pass NULL (nil).
+    ssize_t splice(int fd_in, int64_t *off_in, int fd_out, int64_t *off_out, size_t len, unsigned int flags);
+
+    // int pipe(int pipefd[2]);
+    int pipe(int pipefd[2]);
+
+    // int close(int fd);
+    int close(int fd);
+]]
+
+-- splice(2) flags from <fcntl.h>
+local SPLICE_F_MOVE = 1 -- Not really needed, but good practice.
+local SPLICE_F_MORE = 4 -- A hint to the kernel that more data is coming.
+
+-- Standard I/O file descriptors
+local STDOUT_FILENO = 1
+
+-- A reasonably large buffer size for splicing. 64KB is a common choice.
+local SPLICE_BUFFER_SIZE = 65536
+
 local function server_listen(server_socket, server_socket_path)
   uv.listen(server_socket, 10, function(_)
     local receive_socket = assert(uv.new_pipe(false))
     uv.accept(server_socket, receive_socket)
 
     -- Avoid dangling temp dir on premature process kills (live grep)
-    -- see more complete note in spawn.lua
     if not _is_win then
       uv.fs_unlink(server_socket_path)
       local tmpdir = vim.fn.fnamemodify(server_socket_path, ":h")
       if tmpdir and #tmpdir > 0 then uv.fs_rmdir(tmpdir) end
     end
 
-    receive_socket:read_start(function(err, data)
-      assert(not err)
-      if not data then
-        uv.close(receive_socket)
-        uv.close(server_socket)
-        -- on windows: ci fail when use uv.stop()
-        -- on linux: zero event can freeze
-        -- https://github.com/ibhagwan/fzf-lua/pull/1955#issuecomment-2785474217
-        -- uv.stop()
-        os.exit(0)
-        return
+    -- Get the raw integer file descriptor for the client socket.
+    -- This is essential for using it with FFI system calls.
+    local socket_fd = receive_socket:fileno()
+
+    -- Create the intermediate pipe required by splice().
+    -- pipe_fds[0] is the read end, pipe_fds[1] is the write end.
+    local pipe_fds = ffi.new("int[2]")
+    if C.pipe(pipe_fds) == -1 then
+      -- This is a fatal error, print and close.
+      C.perror("pipe")
+      uv.close(receive_socket)
+      uv.close(server_socket)
+      return
+    end
+    local pipe_read_fd = pipe_fds[0]
+    local pipe_write_fd = pipe_fds[1]
+
+    -- Instead of `read_start`, we use a poll handle to wait for the
+    -- socket to become readable without blocking the event loop.
+    local poll_handle = uv.new_poll(socket_fd)
+
+    local function cleanup()
+      poll_handle:stop()
+      uv.close(poll_handle)
+      uv.close(receive_socket)
+      uv.close(server_socket)
+      C.close(pipe_read_fd)
+      C.close(pipe_write_fd)
+      os.exit(0)
+    end
+
+    poll_handle:start(uv.UV_READABLE, function(err)
+      assert(not err, err)
+
+      while true do
+        -- Step 1: Splice data from the socket into our pipe's write-end.
+        local bytes_spliced = C.splice(socket_fd, nil, pipe_write_fd, nil, SPLICE_BUFFER_SIZE,
+          SPLICE_F_MORE)
+
+        if bytes_spliced < 0 then
+          local errno = ffi.errno()
+          if errno == ffi.EAGAIN or errno == ffi.EWOULDBLOCK then
+            -- The socket buffer is empty for now. Stop looping and wait for
+            -- the next poll event.
+            break
+          else
+            -- A real error occurred.
+            C.perror("splice (socket -> pipe)")
+            cleanup()
+            return
+          end
+        elseif bytes_spliced == 0 then
+          -- EOF: The client closed the connection.
+          cleanup()
+          return
+        else
+          -- Step 2: Splice the exact number of bytes we just received
+          -- from our pipe's read-end to standard output.
+          local bytes_written = C.splice(pipe_read_fd, nil, STDOUT_FILENO, nil, bytes_spliced,
+            SPLICE_F_MORE)
+          if bytes_written < 0 then
+            C.perror("splice (pipe -> stdout)")
+            cleanup()
+            return
+          end
+        end
       end
-      io.write(data)
     end)
   end)
 end
